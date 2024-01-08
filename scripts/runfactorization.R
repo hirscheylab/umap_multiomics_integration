@@ -206,9 +206,13 @@ runfactorization <- function(folder,
   
   if ("UBMI" %in% methods) { ### UBMI
 
-    ubmi_object <- ubmi(omics, compute_features = TRUE, samples_in_rows = FALSE, min_pts = min_pts)
+    ubmi_object <- ubmi(omics, 
+                        umap_params = list(n_components = num.factors),
+                        compute_features = TRUE, 
+                        samples_in_rows = FALSE, 
+                        min_pts = min_pts)
     
-    metagenes_ubmi <- ubmi_object@metagenes_factor1
+    metagenes_ubmi <- append(ubmi_object@single_metagenes_factor1, ubmi_object@single_metagenes_factor2)
       
     factorizations[[t]] <- list(ubmi_object@factors[, colnames(ubmi_object@factors) != "clust"], 
                                 metagenes_ubmi)
