@@ -274,6 +274,7 @@ for(num.clusters in list_clusters) {
         cl_tmp  <- read.table(paste0(simul_folder, "clusters.txt"), sep = "\t", row.names = 1, header = TRUE)
         out <- runfactorization(simul_folder, paste0("omics",1:3,".txt"),
                                 num.clusters, 
+                                compute_features = FALSE,
                                 min_pts = min(table(cl_tmp$cluster.id)),
                                 sep = "\t", filtering = "none",
                                 methods = factorization_methods)

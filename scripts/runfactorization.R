@@ -24,6 +24,7 @@ runfactorization <- function(folder,
                              file.names, 
                              num.factors,
                              min_pts = 5,
+                             compute_features = TRUE,
                              sep = " ", 
                              filtering = "none",
                              methods = c("RGCCA", "MCIA", "MOFA", "JIVE", "intNMF", "tICA", "UBMI")
@@ -208,7 +209,7 @@ runfactorization <- function(folder,
 
     ubmi_object <- ubmi(omics, 
                         umap_params = list(n_components = num.factors),
-                        compute_features = TRUE, 
+                        compute_features = compute_features, 
                         samples_in_rows = FALSE, 
                         min_pts = min_pts)
     
