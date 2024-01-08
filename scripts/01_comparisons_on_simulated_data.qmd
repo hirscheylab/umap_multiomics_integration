@@ -19,7 +19,7 @@ source("runfactorization.R")
 
 ```{r}
 n_samples <- 500
-factorization_methods <- c("RGCCA", "MCIA", "intNMF", "tICA", "UBMI") # "MOFA", "JIVE"
+factorization_methods <- c("RGCCA", "MCIA", "MOFA", "JIVE", "intNMF", "tICA", "UBMI")
 
 # Base folder for data
 data_folder <- "../data/"
