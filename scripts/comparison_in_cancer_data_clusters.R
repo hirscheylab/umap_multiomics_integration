@@ -1,0 +1,154 @@
+
+library(survival)
+library(survminer)
+
+survival_cluster_comparison <- function(results_folder) {
+  
+  files <- paste0(results_folder, list.files(results_folder, pattern = "\\.Rds"))
+  
+  # Sub-folder for results
+  results_folder <- paste0(results_folder, "results_clusters")
+  dir.create(results_folder, showWarnings = FALSE)
+  
+  cancer_names <- gsub(".*/", "", files)
+  cancer_names <- gsub("results_out.Rds", "", cancer_names)
+  
+  files_survival <- paste0("data/cancer/", cancer_names, "/survival")
+  
+  clusters <- list()
+  
+  # Assigning samples to cluster based on factors
+  for (i in 1:length(files)) {
+    factorizations <- readRDS(files[i])
+    survival <- read.table(files_survival[i], sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+    
+    if(cancer_names[i] == "breast") {
+      # Adjust sample names for breast survival dataset
+      survival[,1] <- paste0(toupper(survival[,1]), "-01")
+      survival[,1] <- gsub("\\.", "-", survival[,1])
+      
+      # Adjust sample names for breast factorizations
+      fct_names <- rownames(factorizations$factorizations[[1]][[1]])
+      rownames(factorizations$factorizations[[1]][[1]]) <- gsub("\\.", "-", fct_names)
+    }
+    
+    clusters_df <- data.frame()
+    
+    for (j in 1:length(factorizations$method)) {
+      if (factorizations$method[j] == "UBMI" || factorizations$method[j] == "intNMF") {
+        if (factorizations$method[j] == "UBMI") {
+          clust_iCluster <- as.matrix(factorizations$UBMI.clusters)
+        } else {
+          clust_iCluster <- as.matrix(factorizations$intNMF.clusters)
+        }
+      } else {
+        factors <- factorizations$factorizations[[j]][[1]]
+        
+        ## Optimal number of clusters
+        wss <- data.frame(wss = sapply(1:15, function(k){stats::kmeans(factors, k)$tot.withinss})) %>%
+          dplyr::mutate(k = 1:15)
+        
+        i1 <- which.min(wss$k)
+        i2 <- which.max(wss$k)
+        slope <- (wss$wss[i2] - wss$wss[i1]) / (wss$k[i2] - wss$k[i1])
+        int <- wss$wss[i1] - slope*wss$k[i1]
+        
+        perpslope <- -1/slope
+        perpint <- wss$wss - perpslope*wss$k
+        
+        xcross <- (int - perpint) / (perpslope - slope)
+        ycross <- slope*xcross + int
+        
+        dists <- sqrt((wss$k - xcross)^2 + (wss$wss - ycross)^2)
+        elbowi <- which.max(dists)
+        
+        ## Clustering by Kmeans
+        for (run in 1:1000) {
+          kmeans.out <- kmeans(factors, centers = elbowi)
+          clust_iCluster <- as.matrix(kmeans.out$cluster)
+        }
+      }
+      
+      clusters_df <- rbind(clusters_df, as.numeric(clust_iCluster))
+      rownames(clusters_df)[j] <- factorizations$method[j]
+      colnames(clusters_df) <- rownames(factorizations$factorizations[[1]][[1]])
+    }
+    
+    clusters[[i]] <- clusters_df %>% 
+      t() %>% 
+      as.data.frame() %>% 
+      tibble::rownames_to_column("PatientID") %>% 
+      dplyr::mutate(PatientID = gsub("\\.", "-", PatientID)) %>% 
+      dplyr::left_join(survival, by = "PatientID")
+    
+    print(paste0("Done ", cancer_names[i], "!"))
+  }
+  
+  names(clusters) <- cancer_names
+  
+  return(clusters)
+  
+}
+
+out_clust_surv <- survival_cluster_comparison(results_folder)
+# save(out_clust_surv, file = paste0(results_folder, "results_clusters/survival_clusters.RData"))
+
+most_different_clusters <- TRUE
+
+for (i in 1:length(out_clust_surv)) {
+  clusters_tmp <- out_clust_surv[[i]][,-1]
+  clusters_name_tmp <- names(out_clust_surv)[[i]]
+  
+  p <- list()
+  for (j in 1:(ncol(clusters_tmp) - 2)) {
+    method_j <- colnames(clusters_tmp)[j]
+    clusters_tmp2 <- clusters_tmp[, c(method_j, "Survival", "Death")] %>%
+      tidyr::drop_na()
+    
+    if(most_different_clusters) {
+      extremes <- clusters_tmp2 %>%
+        dplyr::group_by(.[[1]]) %>%
+        dplyr::summarise(median_surv = median(Survival, na.rm = TRUE)) %>%
+        dplyr::ungroup() %>%
+        dplyr::filter(median_surv == min(median_surv) | median_surv == max(median_surv)) %>%
+        # dplyr::mutate(dif = diff(median_surv)) %>% 
+        dplyr::pull(1)
+      
+      clusters_tmp2 <- clusters_tmp2 %>%
+        dplyr::filter(.[[1]] %in% extremes)
+    }
+    
+    model_event <- survfit(Surv(Survival, Death) ~ clusters_tmp2[,1], data = clusters_tmp2)
+    
+    p[[j]] <- ggsurvplot(
+      model_event,
+      conf.int = FALSE,
+      palette =  viridis::viridis(length(table(clusters_tmp2[,1]))),
+      legend = "none", # "top"
+      legend.title = element_blank(),
+      surv.median.line = "none",
+      data = clusters_tmp2,
+      pval = FALSE,
+      pval.method = FALSE,
+      risk.table = FALSE) +
+      labs(x = "Time (Days)",
+           y = "Overall Survival Probability") +
+      {if(!most_different_clusters)labs(title = paste0(colnames(clusters_tmp2)[1], " (", 
+                                                       length(table(clusters_tmp2[,1])), " clusters)"),
+                                        subtitle = paste0("pval = ", signif(surv_pvalue(model_event)$pval, digits = 3)))} +
+      {if(most_different_clusters)labs(title = paste0(colnames(clusters_tmp2)[1], " (N = ", 
+                                                      paste0(table(clusters_tmp2[,1]), collapse = "/"), ")"),
+                                       subtitle = paste0("pval = ", signif(surv_pvalue(model_event)$pval, digits = 3)))} +
+      NULL
+  }
+  
+  print(paste0("Done ", clusters_name_tmp, " plots!"))
+  
+  p <- arrange_ggsurvplots(p, ncol = 4, nrow = 2)
+  ggsave(p, filename = paste0(results_folder, "results_clusters/",
+                              toupper(clusters_name_tmp), "_", 
+                              ifelse(most_different_clusters, "2Clusters", "AllClusters"),
+                              "_survival_cluster_plots.pdf"),
+         width = 15, height = 8)
+}
+
