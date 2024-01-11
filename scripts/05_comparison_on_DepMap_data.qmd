@@ -245,6 +245,56 @@ write.table(report_cindex, file = paste0(results_folder, "depmap_cindex.txt"),
             sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
 ```
 
+### jDR Clusters vs groud truth lineage
+
+```{r}
+depmap_cluster_comparison <- function(out) {
+  
+  clusters_df <- list()
+  for (i in 1:length(out$factorizations)) {
+    
+    if (out$method[i] == "UBMI" || out$method[i] == "intNMF") {
+      if (out$method[i] == "UBMI") {
+        clust_iCluster <- as.matrix(out$UBMI.clusters)
+      } else {
+        clust_iCluster <- as.matrix(out$intNMF.clusters)
+      }
+    } else {
+      factors <- out$factorizations[[i]][[1]]
+      
+      ## Clustering by Kmeans
+      for (run in 1:1000) {
+        kmeans.out <- kmeans(factors, centers = length(tcga_lineages))
+        clust_iCluster <- as.matrix(kmeans.out$cluster)
+      }
+    }
+    
+    clusters_df[[i]] <- as.numeric(clust_iCluster)
+    
+    print(paste0("Done ", out$method[i], "!"))
+  }
+  
+  clusters <- dplyr::bind_cols(clusters_df)
+  colnames(clusters) <- out$method
+  
+  return(clusters)
+}
+
+out_clust_depmap <- depmap_cluster_comparison(out)
+save(out_clust_depmap, file = paste0(results_folder, "depmap_clusters.RData"))
+```
+
+```{r}
+library(mclust)
+
+ari_value <- list()
+for (i in 1:length(out$method)) {
+ ari_value[[i]] <- adjustedRandIndex(sample_info$lineage, unlist(out_clust_depmap[,i])) 
+}
+
+ari_value <- round(unlist(ari_value), 3)
+```
+
 ```{r}
 ## Final plots
 rgcca <- as.data.frame(out$factorizations[[1]][[1]])
@@ -275,14 +325,75 @@ ubmi <- as.data.frame(out$factorizations[[7]][[1]])
 ubmi$method <- "UBMI"
 colnames(ubmi)[1:2] <- c("factor1", "factor2")
 
-## Merge methods and plot
-all_depmap <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+## Merge methods C-INDEX
+all_depmap_cindex <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>%
+  as.data.frame() %>%
+  rownames_to_column("id") %>%
+  mutate(lineage = rep(sample_info$lineage, length(out$factorizations))) %>%
+  left_join(report_cindex, by = "method") %>%
+  mutate(cindex = round(cindex, 3))
+
+## Merge methods ARI
+### Repeat each element n times
+ari_value_reps <- rep(ari_value, each = nrow(out$factorizations[[1]][[1]]))
+
+all_depmap_ari <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
   as.data.frame() %>% 
   rownames_to_column("id") %>% 
-  mutate(lineage = rep(sample_info$lineage, length(out$factorizations))) %>% 
-  left_join(report_cindex, by = "method") %>% 
-  mutate(method = paste0(method, ": ", round(cindex, 3)))
+  mutate(ari = ari_value_reps)
+```
 
+```{r}
+calculate_cluster_purity <- function(clusters, lineages) {
+  unique_clusters <- unique(clusters)
+  cluster_purity_list <- numeric(length(unique_clusters))
+  
+  for (i in seq_along(unique_clusters)) {
+    cluster <- unique_clusters[i]
+    # Subset lineages in the current cluster
+    lineages_in_cluster <- lineages[clusters == cluster]
+    # Most common lineage in the cluster
+    most_common_lineage <- names(sort(table(lineages_in_cluster), decreasing = TRUE)[1])
+    # Purity calculation
+    purity <- max(table(lineages_in_cluster)) / length(lineages_in_cluster)
+    cluster_purity_list[i] <- purity
+  }
+  
+  # Overall purity (weighted by cluster size)
+  overall_purity <- sum(cluster_purity_list * table(clusters)) / length(clusters)
+  
+  return(list(cluster_purities = cluster_purity_list, overall_purity = overall_purity))
+}
+
+cluster_purity <- list()
+for (i in 1:length(out$method)) {
+ cluster_purity[[i]] <- calculate_cluster_purity(unlist(out_clust_depmap[,i]), sample_info$lineage)$overall_purity
+}
+
+cluster_purity <- round(unlist(cluster_purity), 3)
+
+## Merge methods PURITY
+### Repeat each element n times
+cluster_purity_reps <- rep(cluster_purity, each = nrow(out$factorizations[[1]][[1]]))
+
+all_depmap_purity <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+  as.data.frame() %>% 
+  rownames_to_column("id") %>% 
+  mutate(purity = cluster_purity_reps)
+```
+
+```{r}
+## Merge C-INDEX and ARI
+all_depmap <- all_depmap_cindex %>% 
+  dplyr::select(id, lineage, cindex) %>% 
+  dplyr::inner_join(all_depmap_ari, by = "id") %>% 
+  dplyr::inner_join(all_depmap_purity %>% 
+                      dplyr::select(id, purity),
+                    by = "id") %>% 
+  dplyr::mutate(combined_score = (purity + ari) / 2,
+                method = paste0(method, ": ", combined_score))
+
+## PLOT
 ggplot(all_depmap, aes(x = factor1, y = factor2)) + 
   geom_point(aes(fill = lineage), color = "black", pch = 21, size = 3, alpha = 0.7) +
   labs(x = "Factor 1",
