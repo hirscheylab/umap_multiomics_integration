@@ -1,0 +1,417 @@
+---
+title: "SUB-BENCHMARK 5: Comparing jDR methods on DepMap datasets"
+format: html
+editor: visual
+---
+
+# SUB-BENCHMARK 5: Comparing jDR methods on DepMap datasets
+
+We subset the same lineages we used for TCGA comparison (benchmark #2).
+
+## Data preprocessing
+
+```{r}
+# Function from POMA package - BiocManager::install("POMA")
+cleaning_multiomics <- function(data,
+                                zero_cutoff = 0.3,
+                                na_cutoff = 0.3) {
+  
+   data <- data %>%
+     dplyr::rename("id" = 1) %>%
+     tibble::column_to_rownames("id")
+
+   ## Remove columns that only have NAs
+   data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+
+   ## Remove columns that only have zeros
+   data <- data[, apply(data, 2, function(x) !all(x == 0, na.rm = TRUE))]
+
+   ## Remove columns with var = 0
+   data <- data[, !apply(data, 2, function(x){var(x, na.rm = TRUE)}) == 0]
+
+   ## Remove columns that with more than x% of zeros
+   data <- data[, colSums(data == 0, na.rm = TRUE)/nrow(data) < zero_cutoff]
+
+   ## Remove columns that with more than x% of NAs
+   data <- data[, !apply(data, 2, function(x){sum(is.na(x))/nrow(data)}) > na_cutoff]
+
+   ## KNN imputation
+   data <- t(data)
+   data <- impute::impute.knn(data)
+   data <- t(data$data)
+
+   data <- apply(data, 2, function(x) (log(x + 1) - mean(log(x + 1), na.rm = TRUE))/sd(log(x + 1), na.rm = TRUE))
+
+   data <- data %>%
+     as.data.frame() %>%
+     rownames_to_column("id")
+
+   return(data)
+}
+```
+
+```{r}
+library(tidyverse)
+
+# We excluded 'sarcoma' because there are too many subtypes in DepMap
+tcga_lineages <- c('AML', 'breast', 'colorectal', 'kidney', 'liver', 'ovary', 'melanoma')
+
+sample_info <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/sample_info.csv", delim = ",") %>% 
+  dplyr::select(DepMap_ID, lineage, lineage_subtype) %>% 
+  dplyr::mutate(lineage = dplyr::case_when(lineage %in% c("skin", "blood") ~ lineage_subtype,
+                                           !lineage %in% c("skin", "blood") ~ lineage)) %>% 
+  dplyr::filter(lineage %in% tcga_lineages) %>% 
+  dplyr::select(DepMap_ID, lineage) %>% 
+  dplyr::arrange(DepMap_ID)
+
+# EXPRESSION --------------------------
+expression <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/Expression_22Q2_Public.csv", delim = ",") %>% 
+  dplyr::rename(DepMap_ID = 1) %>% 
+  dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
+
+# METHYLATION --------------------------
+methylation <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/Methylation_(1kb_upstream_TSS).csv", delim = ",") %>% 
+  dplyr::rename(DepMap_ID = 1) %>% 
+  dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
+
+# miRNA --------------------------
+mirna <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/miRNA_Expression.csv", delim = ",") %>% 
+  dplyr::rename(DepMap_ID = 1) %>% 
+  dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
+
+# METABOLOMICS --------------------------
+metabolomics <- vroom::vroom("/Users/pol/Dropbox/modp/data/Metabolomics.csv", delim = ",") %>% 
+  dplyr::rename(DepMap_ID = 1) %>% 
+  dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
+
+# ALL CELLS --------------------------
+all_cells <- dplyr::intersect(expression$DepMap_ID, methylation$DepMap_ID)
+all_cells <- dplyr::intersect(mirna$DepMap_ID, all_cells)
+all_cells <- dplyr::intersect(metabolomics$DepMap_ID, all_cells)
+
+# EXPRESSION --------------------------
+expression_clean <- expression %>%
+  dplyr::filter(DepMap_ID %in% all_cells)
+
+expression_clean <- cleaning_multiomics(expression_clean)
+
+sum(apply(expression_clean, 2, function(x){sum(is.na(x))}))
+
+# METHYLATION --------------------------
+methylation_clean <- methylation %>%
+  dplyr::filter(DepMap_ID %in% all_cells)
+
+methylation_clean <- cleaning_multiomics(methylation_clean)
+
+sum(apply(methylation_clean, 2, function(x){sum(is.na(x))}))
+
+# miRNA --------------------------
+mirna_clean <- mirna %>%
+  dplyr::filter(DepMap_ID %in% all_cells)
+
+mirna_clean <- cleaning_multiomics(mirna_clean)
+
+sum(apply(mirna_clean, 2, function(x){sum(is.na(x))}))
+
+# METABOLOMICS --------------------------
+metabolomics_clean <- metabolomics %>%
+  dplyr::filter(DepMap_ID %in% all_cells)
+
+metabolomics_clean <- cleaning_multiomics(metabolomics_clean)
+
+sum(apply(metabolomics_clean, 2, function(x){sum(is.na(x))}))
+
+# ARRANGE ALL --------------------------
+expression_clean <- expression_clean %>%
+  dplyr::arrange(id) %>% 
+  dplyr::select(id, sort(tidyselect::peek_vars())) %>% 
+  tibble::column_to_rownames("id")
+
+methylation_clean <- methylation_clean %>%
+  dplyr::arrange(id) %>% 
+  dplyr::select(id, sort(tidyselect::peek_vars())) %>% 
+  tibble::column_to_rownames("id")
+
+mirna_clean <- mirna_clean %>%
+  dplyr::arrange(id) %>% 
+  dplyr::select(id, sort(tidyselect::peek_vars())) %>% 
+  tibble::column_to_rownames("id")
+
+metabolomics_clean <- metabolomics_clean %>%
+  dplyr::arrange(id) %>% 
+  dplyr::select(id, sort(tidyselect::peek_vars())) %>% 
+  tibble::column_to_rownames("id")
+
+sample_info <- sample_info %>% 
+  dplyr::filter(DepMap_ID %in% all_cells)
+
+save()
+```
+
+## Running comparison
+
+```{r}
+library("ggplot2")
+library("clusterCrit")
+source("runfactorization.R")
+
+# Parameters for the plots
+dot_size <- 1.5
+dot_alpha <- 1.0
+xlabel <- "Factor 1"
+ylabel <- "Factor 2"
+
+# Load annotations from the metadata
+sample_annot <- metadata[, c("sample.rna", "celltype")]
+
+# Folder for results
+results_folder <- "../results_single_cell/"
+# Create output folder
+dir.create(results_folder, showWarnings = FALSE)
+
+# Run factorization methods
+out <- runfactorization("../data/single-cell/",
+                        c("CellLines_RNAseqCounts.txt", "CellLines_ATACseqCounts.txt"),
+                        num.factors = 2, 
+                        min_pts = 10, # manual tuning
+                        compute_features = FALSE,
+                        sep="\t", 
+                        filtering="stringent")
+
+save(out, file = "../results_single_cell/factorization.RData")
+```
+
+```{r}
+c_index <- numeric(0)
+
+# For each factorization method
+for(i in 1:length(out$factorizations)){
+    
+    # Get factorization result
+    factors <- out$factorizations[[i]][[1]]
+
+    # Delete NAs
+    factors <- factors[!is.na(factors[,1]) & !is.na(factors[,2]), ]
+    sample_annot <- sample_annot[!is.na(sample_annot[,1]) & !is.na(sample_annot[,2]), ]
+
+    # Data to be plotted
+    df <- data.frame(x =  factors[,1], y = factors[,2], color_by = sample_annot[,2])
+    # Plot results
+    p <- ggplot(df, aes_string(x = "x", y = "y")) + 
+       geom_point(aes_string(color = "color_by"), size=dot_size, alpha=dot_alpha) + 
+       xlab(xlabel) + ylab(ylabel) +
+       # scale_shape_manual(values=c(19,1,2:18)[seq_along(unique(shape_by))]) +
+       theme(plot.margin = margin(20, 20, 10, 10), 
+             axis.text = element_text(size = rel(1), color = "black"), 
+             axis.title = element_text(size = 16), 
+             axis.title.y = element_text(size = rel(1.1), margin = margin(0, 10, 0, 0)), 
+             axis.title.x = element_text(size = rel(1.1), margin = margin(10, 0, 0, 0)), 
+             axis.line = element_line(color = "black", size = 0.5), 
+             axis.ticks = element_line(color = "black", size = 0.5),
+             panel.border = element_blank(), 
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(), 
+             panel.background = element_blank(),
+             legend.key = element_rect(fill = "white"),
+             legend.text = element_text(size = 16),
+             legend.title = element_text(size =16)
+       )
+    p + scale_color_manual(values=c("#0072B2", "#D55E00", "#CC79A7"))
+    # Export plot as JPEG image
+    ggsave(paste0(results_folder, "plot_", out$method[i],".jpg"))
+
+    # Encode cell type annotations by numeric codes
+    ann <- factor(sample_annot[,2], levels=c("HCT", "Hela", "K562"))
+    ann <- as.integer(ann)
+    # Compare factors and annotations
+    c_index <- c(c_index, intCriteria(as.matrix(factors), as.integer(ann), crit=c("C_index"))$c_index)
+
+}
+
+# Build output table
+report_cindex <- data.frame(method=out$method, cindex=c_index)
+
+# Export results as one tab-separated table
+write.table(report_cindex, file = paste0(results_folder, "singlecell_cindex.txt"), 
+            sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
+```
+
+```{r}
+## Final plots
+rgcca <- as.data.frame(out$factorizations[[1]][[1]])
+rgcca$method <- "RGCCA"
+colnames(rgcca)[1:2] <- c("factor1", "factor2")
+
+mcia <- as.data.frame(out$factorizations[[2]][[1]])
+mcia$method <- "MCIA"
+colnames(mcia)[1:2] <- c("factor1", "factor2")
+
+mofa <- as.data.frame(out$factorizations[[3]][[1]])
+mofa$method <- "MOFA"
+colnames(mofa)[1:2] <- c("factor1", "factor2")
+
+intnmf <- as.data.frame(out$factorizations[[4]][[1]])
+intnmf$method <- "intNMF"
+colnames(intnmf)[1:2] <- c("factor1", "factor2")
+
+jive <- as.data.frame(out$factorizations[[5]][[1]])
+jive$method <- "JIVE"
+colnames(jive)[1:2] <- c("factor1", "factor2")
+
+tica <- as.data.frame(out$factorizations[[6]][[1]])
+tica$method <- "tICA"
+colnames(tica)[1:2] <- c("factor1", "factor2")
+
+ubmi <- as.data.frame(out$factorizations[[7]][[1]])
+ubmi$method <- "UBMI"
+colnames(ubmi)[1:2] <- c("factor1", "factor2")
+
+## Merge methods and plot
+all_sc <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+  as.data.frame() %>% 
+  rownames_to_column("id") %>% 
+  mutate(type = case_when(grepl("HCT", id) ~ "HCT",
+                          grepl("Hela", id) ~ "Hela",
+                          grepl("K562", id) ~ "K562")) %>% 
+  left_join(report_cindex, by = "method") %>% 
+  mutate(method = paste0(method, ": ", round(cindex, 3)))
+
+ggplot(all_sc, aes(x = factor1, y = factor2)) + 
+  geom_point(aes(fill = type), color = "black", pch = 21, size = 3, alpha = 0.7) +
+  labs(x = "Factor 1",
+       y = "Factor 2") +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        legend.position = "top",
+        text = element_text(size = 15)) +
+  facet_wrap(~ method, nrow = 3, scales = "free") +
+  scale_fill_viridis_d(end = 0.8)
+
+ggsave(paste0(results_folder, "plot_overall.jpg"), width = 9, height = 9)
+```
+
+## UBMI Clusters
+
+```{r}
+ubmi_clusters <- data.frame(sample = rownames(ubmi), ubmi, clust = paste0("Cluster_", out$UBMI.clusters)) %>% 
+  dplyr::filter(clust != "Cluster_0")
+
+ggplot(ubmi_clusters, aes(x = factor1, y = factor2)) + 
+  geom_point(aes(fill = clust), color = "black", pch = 21, size = 3, alpha = 0.7) +
+  labs(x = "Factor 1",
+       y = "Factor 2") +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        legend.position = "top",
+        text = element_text(size = 15)) +
+  scale_fill_viridis_d(end = 0.8)
+
+ggsave(paste0(results_folder, "plot_UBMI_clusters.jpg"), width = 6, height = 5)
+```
+
+## Cluster Differential Expression Analysis
+
+```{r}
+library(POMA)
+
+ubmi_clusters_subset <- ubmi_clusters[ubmi_clusters$clust %in% c("Cluster_2", "Cluster_3"),]
+exp_subset <- exp[, colnames(exp) %in% rownames(ubmi_clusters_subset)]
+
+poma_obj <- PomaCreateObject(metadata = ubmi_clusters_subset[, c("sample", "clust")],
+                             features = t(exp_subset))
+
+limma_res <- poma_obj %>% 
+  PomaLimma(contrast = "Cluster_2-Cluster_3")
+
+nrow(limma_res[limma_res$adj_pvalue < 0.05,]) # 190 DE genes
+
+saveRDS(limma_res, file = paste0(results_folder, "limma_res_cluster2_cluster3.Rds"))
+
+poma_obj %>% 
+  PomaVolcano(method = "limma",
+              pval = "adjusted",
+              pval_cutoff = 0.05,
+              adjust = "fdr",
+              log2fc_cutoff = 1.5)
+
+ggsave(paste0(results_folder, "volcanoplot_clusters_2_3_UBMI.jpg"), width = 8)
+```
+
+## Enrichment Analysis
+
+### KEGG
+
+```{r}
+library(clusterProfiler)
+library(org.Hs.eg.db)
+
+## KEGG
+feature_list <- limma_res %>%
+  dplyr::arrange(dplyr::desc(logFC))
+
+gene_list <- feature_list$logFC
+names(gene_list) <- feature_list$feature
+
+ids <- bitr(names(gene_list),
+            fromType = "ENSEMBL",
+            toType = "ENTREZID",
+            OrgDb = org.Hs.eg.db)
+
+feature_list_entrez <- feature_list %>%
+  right_join(ids, by = c("feature" = "ENSEMBL"))
+
+# Create a vector of the gene universe
+kegg_gene_list <- feature_list_entrez$logFC
+names(kegg_gene_list) <- feature_list_entrez$ENTREZID
+
+kegg_res <- gseKEGG(geneList      = kegg_gene_list,
+                    organism      = "hsa",
+                    nPerm         = 10000,
+                    minGSSize     = 10,
+                    maxGSSize     = 500,
+                    pvalueCutoff  = 0.05,
+                    pAdjustMethod = "fdr",
+                    keyType       = "ncbi-geneid")
+
+dotplot(kegg_res,
+        showCategory = 20,
+        title = "",
+        split = ".sign") +
+  facet_grid(. ~ .sign) +
+  theme(legend.position = "top")
+
+ggsave(paste0(results_folder, "GSEA_KEGG.jpg"), width = 10)
+openxlsx::write.xlsx(kegg_res@result, file = paste0(results_folder, "GSEA_KEGG_table.xlsx"))
+```
+
+### Gene Ontology
+
+```{r}
+gene_list <- limma_res$logFC
+names(gene_list) <- limma_res$feature
+
+# omit any NA values 
+gene_list <- na.omit(gene_list)
+
+# sort the list in decreasing order (required for clusterProfiler)
+gene_list <- sort(gene_list, decreasing = TRUE)
+
+gse <- gseGO(geneList = gene_list, 
+             ont = "BP", 
+             keyType = "ENSEMBL", 
+             nPerm = 10000, 
+             minGSSize = 10, 
+             maxGSSize = 500, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             OrgDb = org.Hs.eg.db, 
+             pAdjustMethod = "fdr")
+
+dotplot(gse, showCategory = 10, split = ".sign") + 
+  facet_grid(. ~ .sign) +
+  theme(legend.position = "top",
+        text = element_text(size = 15))
+
+ggsave(paste0(results_folder, "GSEA_GO.jpg"), width = 13, height = 9)
+openxlsx::write.xlsx(kegg_res@result, file = paste0(results_folder, "GSEA_GO_table.xlsx"))
+```
