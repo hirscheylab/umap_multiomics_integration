@@ -17,8 +17,7 @@ library(MOFA2)
 library(r.jive)
 library(tensorBSS)
 source("tICA.R")
-library(ubmi)
-# remotes::install_version("Matrix", version = "1.6-1")
+library(ubmi) # remotes::install_version("Matrix", version = "1.6-1")
 
 runfactorization <- function(folder, 
                              file.names, 

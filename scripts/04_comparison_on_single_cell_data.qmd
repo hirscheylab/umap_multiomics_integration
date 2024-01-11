@@ -307,4 +307,3 @@ dotplot(gse, showCategory = 10, split = ".sign") +
 ggsave(paste0(results_folder, "GSEA_GO.jpg"), width = 13, height = 9)
 openxlsx::write.xlsx(kegg_res@result, file = paste0(results_folder, "GSEA_GO_table.xlsx"))
 ```
-
