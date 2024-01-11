@@ -56,7 +56,7 @@ library(tidyverse)
 # We excluded 'sarcoma' because there are too many subtypes in DepMap
 tcga_lineages <- c('AML', 'breast', 'colorectal', 'kidney', 'liver', 'ovary', 'melanoma')
 
-sample_info <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/sample_info.csv", delim = ",") %>% 
+sample_info <- vroom::vroom("../data/DepMap/sample_info.csv", delim = ",") %>% 
   dplyr::select(DepMap_ID, lineage, lineage_subtype) %>% 
   dplyr::mutate(lineage = dplyr::case_when(lineage %in% c("skin", "blood") ~ lineage_subtype,
                                            !lineage %in% c("skin", "blood") ~ lineage)) %>% 
@@ -65,22 +65,22 @@ sample_info <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/sample_inf
   dplyr::arrange(DepMap_ID)
 
 # EXPRESSION --------------------------
-expression <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/Expression_22Q2_Public.csv", delim = ",") %>% 
+expression <- vroom::vroom("../data/DepMap/Expression_22Q2_Public.csv", delim = ",") %>% 
   dplyr::rename(DepMap_ID = 1) %>% 
   dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
 
 # METHYLATION --------------------------
-methylation <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/Methylation_(1kb_upstream_TSS).csv", delim = ",") %>% 
+methylation <- vroom::vroom("../data/DepMap/Methylation_(1kb_upstream_TSS).csv", delim = ",") %>% 
   dplyr::rename(DepMap_ID = 1) %>% 
   dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
 
 # miRNA --------------------------
-mirna <- vroom::vroom("/Users/pol/Dropbox/gmv_project/data/22Q2/miRNA_Expression.csv", delim = ",") %>% 
+mirna <- vroom::vroom("../data/DepMap/miRNA_Expression.csv", delim = ",") %>% 
   dplyr::rename(DepMap_ID = 1) %>% 
   dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
 
 # METABOLOMICS --------------------------
-metabolomics <- vroom::vroom("/Users/pol/Dropbox/modp/data/Metabolomics.csv", delim = ",") %>% 
+metabolomics <- vroom::vroom("../data/DepMap/Metabolomics.csv", delim = ",") %>% 
   dplyr::rename(DepMap_ID = 1) %>% 
   dplyr::filter(DepMap_ID %in% sample_info$DepMap_ID)
 
