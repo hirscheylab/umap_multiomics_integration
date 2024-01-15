@@ -550,22 +550,23 @@ max_nonZero = max(clinical_analysis[, "total_sig_clinical_measures"])
 clinical_analysis %>% 
   ggplot(aes(x = total_sig_clinical_measures, y = selectivity)) + 
   geom_point(aes(colour = methods, shape = cancer), size=5, alpha=.6, position=position_jitter(h=0, w=0.15)) + 
-  # geom_hline(aes(yintercept = mean(selectivity, na.rm = TRUE)), linetype = 2) +
+  geom_hline(aes(yintercept = mean(selectivity, na.rm = TRUE)), linetype = 2) +
   theme_bw()  + 
   scale_color_viridis_d(end = 0.8) +
   labs(title = "Clinical annotations", 
        x = "Number of associated clinical annotations") +
-  theme(plot.title = element_text(size=16,face="bold"),
-        axis.text = element_text(size=13),
-        axis.title = element_text(size=15),
-        legend.text=element_text(size=12)) +
+  theme(plot.title = element_text(size=20,face="bold"),
+        axis.text = element_text(size=20),
+        axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20)) +
   ylab("Selectivity") + 
   labs(colour = "Methods",shape="Cancer") +
   guides(color = guide_legend(order = 1),shape = guide_legend(order = 2),size = guide_legend(order = 3)) + 
   scale_x_discrete(limits = min_nonZero:max_nonZero, labels = c(min_nonZero:max_nonZero)) +
   scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1))
 
-ggsave(paste0(results_folder, "clinical_annotations.pdf"), dpi = 300, width = 8, height = 7) # _sub
+ggsave(paste0(results_folder, "clinical_annotations.pdf"), dpi = 300, width = 10, height = 7) # _sub
 ```
 
 ```{r}
@@ -576,8 +577,7 @@ survival_analysis_plot <- survival_analysis %>%
   tidyr::unnest(value) %>% 
   dplyr::mutate(value = as.numeric(value),
                 signif = ifelse(value < 0.05, TRUE, FALSE)) # %>% 
-  # dplyr::filter(cancer %in% c("ovarian", "breast", "melanoma")) %>%
-  # dplyr::filter(methods %in% c("intNMF", "UBMI"))
+  # dplyr::filter(cancer %in% c("ovarian", "breast", "melanoma"))
 
 ggplot(survival_analysis_plot, aes(methods, -log10(value), color = signif)) +
   geom_hline(yintercept = -log10(0.05), linetype = 2, color = "gray") +
@@ -587,8 +587,9 @@ ggplot(survival_analysis_plot, aes(methods, -log10(value), color = signif)) +
   facet_wrap(~ cancer) +
   theme_bw() +
   theme(legend.position = "none",
-        axis.text = element_text(size = 11)) +
+        axis.text = element_text(size = 11),
+        text = element_text(size = 15)) +
   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"))
 
-ggsave(paste0(results_folder, "survival_annotations.pdf"), dpi = 300, width = 12)
+ggsave(paste0(results_folder, "survival_annotations.pdf"), width = 12, height = 8) # _sub; width = 12, height = 5
 ```

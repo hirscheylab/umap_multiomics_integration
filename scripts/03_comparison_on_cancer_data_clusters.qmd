@@ -164,4 +164,3 @@ for (i in 1:length(out_clust_surv)) {
          width = 15, height = 8)
 }
 ```
-
