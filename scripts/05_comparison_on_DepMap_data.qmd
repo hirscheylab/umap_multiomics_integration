@@ -407,4 +407,3 @@ ggplot(all_depmap, aes(x = factor1, y = factor2)) +
 
 ggsave(paste0(results_folder, "plot_overall.jpg"), width = 10, height = 10)
 ```
-
