@@ -41,6 +41,7 @@ We have developed a comprehensive [R package for the UBMI method](https://github
   - Easy integration of diverse omic data types
   - Implementation of advanced UMAP algorithms for dimensionality reduction
   - Built-in functions for clustering and feature extraction
+  - Built-in functions for latent factors and metagenes visualization
   - Compatibility with standard bioinformatics workflows in R and Bioconductor
 
 ## Citation
