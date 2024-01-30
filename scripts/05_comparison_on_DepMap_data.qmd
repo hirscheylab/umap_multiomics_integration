@@ -406,4 +406,25 @@ ggplot(all_depmap, aes(x = factor1, y = factor2)) +
   scale_fill_viridis_d(end = 0.8)
 
 ggsave(paste0(results_folder, "plot_overall.jpg"), width = 10, height = 10)
+
+## BARPLOT
+all_depmap2 <- all_depmap %>% 
+  dplyr::mutate(method = gsub("\\:.*", "", method)) %>% 
+  dplyr::distinct(method, .keep_all = TRUE)
+
+ggplot(all_depmap2, aes(x = combined_score, y = reorder(method, combined_score))) + 
+  geom_col(alpha = 0.7) +
+  # geom_vline(xintercept = quantile(all_depmap2$combined_score, 0.25), linetype = "dashed", alpha = 0.7) +
+  # geom_vline(xintercept = quantile(all_depmap2$combined_score, 0.50), linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = quantile(all_depmap2$combined_score, 0.75), linetype = "dashed", alpha = 0.7) +
+  labs(x = "Composite Score",
+       y = NULL) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        legend.position = "top",
+        text = element_text(size = 15)) +
+  coord_cartesian(xlim = c(0.22, 0.65)) # +- 0.6
+
+ggsave(paste0(results_folder, "barplot.jpg"), width = 5, height = 7)
 ```
+
