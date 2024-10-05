@@ -111,11 +111,13 @@ for (i in 1:length(out_clust_surv)) {
   clusters_tmp <- out_clust_surv[[i]][,-1]
   clusters_name_tmp <- names(out_clust_surv)[[i]]
   
+  colnames(clusters_tmp) <- gsub("UBMI", "GAUDI", colnames(clusters_tmp))
+  
   p <- list()
   for (j in 1:(ncol(clusters_tmp) - 2)) {
     method_j <- colnames(clusters_tmp)[j]
     clusters_tmp2 <- clusters_tmp[, c(method_j, "Survival", "Death")] %>%
-      dplyr::filter(.[[1]] != 0) %>% # UBMI is the only method producing cluster "0" (aka "noise")
+      dplyr::filter(.[[1]] != 0) %>% # GAUDI is the only method producing cluster "0" (aka "noise")
       tidyr::drop_na()
     
     if (most_different_clusters) {
@@ -135,7 +137,7 @@ for (i in 1:length(out_clust_surv)) {
     p[[j]] <- ggsurvplot(
       model_event,
       conf.int = FALSE,
-      palette =  viridis::viridis(length(table(clusters_tmp2[,1])), end = 0.8),
+      palette = ggsci::pal_npg()(length(table(clusters_tmp2[,1]))),
       legend = "none",
       legend.title = element_blank(),
       surv.median.line = ifelse(most_different_clusters, "hv", "none"),

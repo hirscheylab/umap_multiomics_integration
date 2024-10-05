@@ -17,7 +17,7 @@ library(MOFA2)
 library(r.jive)
 library(tensorBSS)
 source("tICA.R")
-library(ubmi) # remotes::install_version("Matrix", version = "1.6-1")
+library(gaudi) # remotes::install_version("Matrix", version = "1.6-1")
 
 runfactorization <- function(folder, 
                              file.names, 
@@ -27,7 +27,7 @@ runfactorization <- function(folder,
                              compute_features = TRUE,
                              sep = " ", 
                              filtering = "none",
-                             methods = c("RGCCA", "MCIA", "MOFA", "intNMF", "JIVE", "tICA", "UBMI")
+                             methods = c("RGCCA", "MCIA", "MOFA", "intNMF", "JIVE", "tICA", "UBMI") # UBMI is the old name for GAUDI
                              ) {
   factorizations <- list()
   t <- 1
@@ -205,15 +205,15 @@ runfactorization <- function(folder,
     print("Done tICA!")
   }
   
-  if ("UBMI" %in% methods) { ### UBMI
+  if ("UBMI" %in% methods) { ### UBMI (GAUDI)
 
-    ubmi_object <- ubmi(omics, 
-                        umap_params = list(n_components = num.factors),
-                        umap_params_conc = list(n_components = n_components_conc),
-                        compute_features = compute_features, 
-                        samples_in_rows = FALSE, 
-                        # xgboost_params = list(lambda = 0, eta = 0.8, gamma = 10),
-                        min_pts = min_pts)
+    ubmi_object <- gaudi(omics, 
+                         umap_params = list(n_components = num.factors),
+                         umap_params_conc = list(n_components = n_components_conc),
+                         compute_features = compute_features, 
+                         samples_in_rows = FALSE, 
+                         # xgboost_params = list(lambda = 0, eta = 0.8, gamma = 10),
+                         min_pts = min_pts)
 
     factorizations[[t]] <- list(ubmi_object@factors[, colnames(ubmi_object@factors) != "clust"], 
                                 ubmi_object@metagenes)

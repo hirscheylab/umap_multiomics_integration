@@ -498,20 +498,23 @@ Plots are then created accordingly to Figure 4 and Supp Figure 2 of the paper.
 ```{r}
 # Plot results
 library(ggplot2)
+library(ggsci)
 
 ## Biological annotations
 plot_bio_annotations <- function(data, db) {
   
-  # data <- data[data$cancer %in% c("breast", "melanoma", "ovarian"), ]
+  # data <- data[data$cancer %in% c("breast", "melanoma", "ovarian"), ] # _sub
+  
+  data$methods <- gsub("UBMI", "GAUDI", data$methods)
   
   min_nonZero = min(data[, "nonZeroFacs"]) 
   max_nonZero = max(data[, "nonZeroFacs"])
   
   ggplot(data, aes(x = nonZeroFacs, y = selectivity)) + 
-    geom_point(aes(colour = methods, shape = cancer), size = 5, alpha = .6, position=position_jitter(h=0, w=0.15)) + 
-    # geom_hline(yintercept = mean(data$selectivity, na.rm = TRUE), linetype = 2) +
+    geom_point(aes(colour = methods, shape = cancer), size = 5, alpha = 0.8, position=position_jitter(h=0, w=0.15)) + 
+    geom_hline(yintercept = mean(data$selectivity, na.rm = TRUE), linetype = 2) +
     theme_bw()  + 
-    scale_color_viridis_d(end = 0.8) +
+    scale_color_manual(values = ggsci::pal_npg()(10)) +
     ylim(floor(min((data[,"selectivity"]*10)-.4)) / 10,
          ceiling(max((data[,"selectivity"]*10)+.2)) / 10) +
     labs(title = paste0("Biological enrichment: ", db), 
@@ -542,17 +545,19 @@ Plots are then created accordingly to Figure 4 and Supp Figure 2 of the paper.
 
 ```{r}
 ## Clinical annotations
-# clinical_analysis <- clinical_analysis[clinical_analysis$cancer %in% c("breast", "melanoma", "ovarian"), ]
+# clinical_analysis <- clinical_analysis[clinical_analysis$cancer %in% c("breast", "melanoma", "ovarian"), ] # _sub
+
+clinical_analysis$methods <- gsub("UBMI", "GAUDI", clinical_analysis$methods)
 
 min_nonZero = min(clinical_analysis[, "total_sig_clinical_measures"])
 max_nonZero = max(clinical_analysis[, "total_sig_clinical_measures"]) 
 
 clinical_analysis %>% 
   ggplot(aes(x = total_sig_clinical_measures, y = selectivity)) + 
-  geom_point(aes(colour = methods, shape = cancer), size=5, alpha=.6, position=position_jitter(h=0, w=0.15)) + 
+  geom_point(aes(colour = methods, shape = cancer), size=5, alpha=0.8, position=position_jitter(h=0, w=0.15)) + 
   geom_hline(aes(yintercept = mean(selectivity, na.rm = TRUE)), linetype = 2) +
   theme_bw()  + 
-  scale_color_viridis_d(end = 0.8) +
+  scale_color_manual(values = ggsci::pal_npg()(10)) +
   labs(title = "Clinical annotations", 
        x = "Number of associated clinical annotations") +
   theme(plot.title = element_text(size=20,face="bold"),
@@ -571,6 +576,8 @@ ggsave(paste0(results_folder, "clinical_annotations.pdf"), dpi = 300, width = 10
 
 ```{r}
 ## Survival
+survival_analysis$methods <- gsub("UBMI", "GAUDI", survival_analysis$methods)
+
 survival_analysis_plot <- survival_analysis %>% 
   dplyr::select(1:(num.factors + 2)) %>% 
   tidyr::pivot_longer(cols = -c(methods, cancer)) %>% 
@@ -581,7 +588,7 @@ survival_analysis_plot <- survival_analysis %>%
 
 ggplot(survival_analysis_plot, aes(methods, -log10(value), color = signif)) +
   geom_hline(yintercept = -log10(0.05), linetype = 2, color = "gray") +
-  geom_point() +
+  geom_point(size = 2) +
   labs(x = NULL,
        y = "-log10(Bonferroni-corrected Survival P-value)") +
   facet_wrap(~ cancer) +

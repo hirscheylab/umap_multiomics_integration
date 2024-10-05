@@ -301,6 +301,8 @@ for(num.clusters in list_clusters) {
 We here save to the Results folder the obtained Jaccard Indices and plot their values according to Figure 2 in the paper. The results that you will obtain will be slightly different from those of the paper, due to the stochasticity of the InterSIM package. The data that you will simulate will not have the same sample-cluster associations and the same features of those simulated in the paper. However, the jDRs having best performances remain the same despite such variations. For the clustering methods sometimes small variability in intNMF results is observed.
 
 ```{r}
+library(ggsci)
+
 # Save all boxplots in a single PDF output file
 pdf(file=paste0(results_folder, "simulated_boxplots.pdf"), width = 15, height = 15, onefile = TRUE)
 
@@ -339,7 +341,16 @@ for (i in list_clusters) {
     # Plot results
     par(mar=c(25,4,2,2)+.1)
     boxplot(JI.final, xaxt="none", cex.axis=3.5, 
-                 col=c('gray','gray','red','red','blue','blue','blueviolet','blueviolet','deeppink','deeppink','chocolate1','chocolate1','darkgoldenrod','darkgoldenrod','green','green','darkturquoise','darkturquoise'), 
+                 # col=c('gray','gray',
+                 #       'red','red',
+                 #       'blue','blue',
+                 #       'blueviolet','blueviolet',
+                 #       'deeppink','deeppink',
+                 #       'chocolate1','chocolate1',
+                 #       'darkgoldenrod','darkgoldenrod',
+                 #       'green','green',
+                 #       'darkturquoise','darkturquoise'),
+                 col=rep(ggsci::pal_npg()(9), each = 2),
                  ann=FALSE, outline=FALSE)
     matplot(1:ncol(JI.final), t(JI.final), col="black", pch=16, xaxt="none", cex=0.8, add=TRUE)
     axis(1, at=1:ncol(JI.final), labels=names(JI.final), 

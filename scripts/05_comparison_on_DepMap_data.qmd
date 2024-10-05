@@ -208,7 +208,8 @@ for(i in 1:length(out$factorizations)){
     # Plot results
     p <- ggplot(df, aes_string(x = "x", y = "y")) + 
        geom_point(aes(color = lineage), size=dot_size, alpha=dot_alpha) + 
-       xlab(xlabel) + ylab(ylabel) +
+       xlab(xlabel) + 
+       ylab(ylabel) +
        # scale_shape_manual(values=c(19,1,2:18)[seq_along(unique(shape_by))]) +
        theme(plot.margin = margin(20, 20, 10, 10), 
              axis.text = element_text(size = rel(1), color = "black"), 
@@ -225,8 +226,11 @@ for(i in 1:length(out$factorizations)){
              legend.text = element_text(size = 16),
              legend.title = element_text(size =16)
        )
-    p + scale_color_viridis_d(end = 0.8)
+    p + scale_color_manual(values = ggsci::pal_npg()(10))
     # Export plot as JPEG image
+        if (out$method[i] == "UBMI") {
+      out$method[i] <- "GAUDI"
+    }
     ggsave(paste0(results_folder, "plot_", out$method[i],".jpg"))
 
     # Encode cell type annotations by numeric codes
@@ -321,12 +325,14 @@ tica <- as.data.frame(out$factorizations[[6]][[1]])
 tica$method <- "tICA"
 colnames(tica)[1:2] <- c("factor1", "factor2")
 
-ubmi <- as.data.frame(out$factorizations[[7]][[1]])
-ubmi$method <- "UBMI"
-colnames(ubmi)[1:2] <- c("factor1", "factor2")
+gaudi <- as.data.frame(out$factorizations[[7]][[1]])
+gaudi$method <- "GAUDI"
+colnames(gaudi)[1:2] <- c("factor1", "factor2")
+
+report_cindex$method <- gsub("UBMI", "GAUDI", report_cindex$method)
 
 ## Merge methods C-INDEX
-all_depmap_cindex <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>%
+all_depmap_cindex <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, gaudi) %>%
   as.data.frame() %>%
   rownames_to_column("id") %>%
   mutate(lineage = rep(sample_info$lineage, length(out$factorizations))) %>%
@@ -337,7 +343,7 @@ all_depmap_cindex <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>%
 ### Repeat each element n times
 ari_value_reps <- rep(ari_value, each = nrow(out$factorizations[[1]][[1]]))
 
-all_depmap_ari <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+all_depmap_ari <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, gaudi) %>% 
   as.data.frame() %>% 
   rownames_to_column("id") %>% 
   mutate(ari = ari_value_reps)
@@ -376,7 +382,7 @@ cluster_purity <- round(unlist(cluster_purity), 3)
 ### Repeat each element n times
 cluster_purity_reps <- rep(cluster_purity, each = nrow(out$factorizations[[1]][[1]]))
 
-all_depmap_purity <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+all_depmap_purity <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, gaudi) %>% 
   as.data.frame() %>% 
   rownames_to_column("id") %>% 
   mutate(purity = cluster_purity_reps)
@@ -395,7 +401,7 @@ all_depmap <- all_depmap_cindex %>%
 
 ## PLOT
 ggplot(all_depmap, aes(x = factor1, y = factor2)) + 
-  geom_point(aes(fill = lineage), color = "black", pch = 21, size = 3, alpha = 0.7) +
+  geom_point(aes(fill = lineage), color = "black", pch = 21, size = 3, alpha = 0.8) +
   labs(x = "Factor 1",
        y = "Factor 2") +
   theme_classic() +
@@ -403,7 +409,7 @@ ggplot(all_depmap, aes(x = factor1, y = factor2)) +
         legend.position = "top",
         text = element_text(size = 15)) +
   facet_wrap(~ method, nrow = 3, scales = "free") +
-  scale_fill_viridis_d(end = 0.8)
+  scale_fill_manual(values = ggsci::pal_npg()(8))
 
 ggsave(paste0(results_folder, "plot_overall.jpg"), width = 10, height = 10)
 
@@ -427,4 +433,3 @@ ggplot(all_depmap2, aes(x = combined_score, y = reorder(method, combined_score))
 
 ggsave(paste0(results_folder, "barplot.jpg"), width = 5, height = 7)
 ```
-

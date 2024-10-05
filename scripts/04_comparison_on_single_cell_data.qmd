@@ -91,7 +91,8 @@ for(i in 1:length(out$factorizations)){
     # Plot results
     p <- ggplot(df, aes_string(x = "x", y = "y")) + 
        geom_point(aes_string(color = "color_by"), size=dot_size, alpha=dot_alpha) + 
-       xlab(xlabel) + ylab(ylabel) +
+       xlab(xlabel) + 
+       ylab(ylabel) +
        # scale_shape_manual(values=c(19,1,2:18)[seq_along(unique(shape_by))]) +
        theme(plot.margin = margin(20, 20, 10, 10), 
              axis.text = element_text(size = rel(1), color = "black"), 
@@ -110,6 +111,9 @@ for(i in 1:length(out$factorizations)){
        )
     p + scale_color_manual(values=c("#0072B2", "#D55E00", "#CC79A7"))
     # Export plot as JPEG image
+    if (out$method[i] == "UBMI") {
+      out$method[i] <- "GAUDI"
+    }
     ggsave(paste0(results_folder, "plot_", out$method[i],".jpg"))
 
     # Encode cell type annotations by numeric codes
@@ -154,12 +158,14 @@ tica <- as.data.frame(out$factorizations[[6]][[1]])
 tica$method <- "tICA"
 colnames(tica)[1:2] <- c("factor1", "factor2")
 
-ubmi <- as.data.frame(out$factorizations[[7]][[1]])
-ubmi$method <- "UBMI"
-colnames(ubmi)[1:2] <- c("factor1", "factor2")
+gaudi <- as.data.frame(out$factorizations[[7]][[1]])
+gaudi$method <- "GAUDI"
+colnames(gaudi)[1:2] <- c("factor1", "factor2")
+
+report_cindex$method <- gsub("UBMI", "GAUDI", report_cindex$method)
 
 ## Merge methods and plot
-all_sc <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>% 
+all_sc <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, gaudi) %>% 
   as.data.frame() %>% 
   rownames_to_column("id") %>% 
   mutate(type = case_when(grepl("HCT", id) ~ "HCT",
@@ -169,7 +175,7 @@ all_sc <- rbind(rgcca, mcia, mofa, intnmf, jive, tica, ubmi) %>%
   mutate(method = paste0(method, ": ", round(cindex, 3)))
 
 ggplot(all_sc, aes(x = factor1, y = factor2)) + 
-  geom_point(aes(fill = type), color = "black", pch = 21, size = 3, alpha = 0.7) +
+  geom_point(aes(fill = type), color = "black", pch = 21, size = 3, alpha = 0.8) +
   labs(x = "Factor 1",
        y = "Factor 2") +
   theme_classic() +
@@ -177,28 +183,28 @@ ggplot(all_sc, aes(x = factor1, y = factor2)) +
         legend.position = "top",
         text = element_text(size = 15)) +
   facet_wrap(~ method, nrow = 3, scales = "free") +
-  scale_fill_viridis_d(end = 0.8)
+  scale_fill_manual(values = ggsci::pal_npg()(3))
 
 ggsave(paste0(results_folder, "plot_overall.jpg"), width = 9, height = 9)
 ```
 
-## UBMI Clusters
+## GAUDI Clusters
 
 ```{r}
-ubmi_clusters <- data.frame(sample = rownames(ubmi), ubmi, clust = paste0("Cluster_", out$UBMI.clusters)) %>% 
+gaudi_clusters <- data.frame(sample = rownames(gaudi), gaudi, clust = paste0("Cluster_", out$UBMI.clusters)) %>% 
   dplyr::filter(clust != "Cluster_0")
 
-ggplot(ubmi_clusters, aes(x = factor1, y = factor2)) + 
-  geom_point(aes(fill = clust), color = "black", pch = 21, size = 3, alpha = 0.7) +
+ggplot(gaudi_clusters, aes(x = factor1, y = factor2)) + 
+  geom_point(aes(fill = clust), color = "black", pch = 21, size = 3, alpha = 0.8) +
   labs(x = "Factor 1",
        y = "Factor 2") +
   theme_classic() +
   theme(legend.title = element_blank(),
         legend.position = "top",
         text = element_text(size = 15)) +
-  scale_fill_viridis_d(end = 0.8)
+  scale_fill_manual(values = ggsci::pal_npg()(4))
 
-ggsave(paste0(results_folder, "plot_UBMI_clusters.jpg"), width = 6, height = 5)
+ggsave(paste0(results_folder, "plot_GAUDI_clusters.jpg"), width = 6, height = 5)
 ```
 
 ## Cluster Differential Expression Analysis
@@ -206,10 +212,10 @@ ggsave(paste0(results_folder, "plot_UBMI_clusters.jpg"), width = 6, height = 5)
 ```{r}
 library(POMA)
 
-ubmi_clusters_subset <- ubmi_clusters[ubmi_clusters$clust %in% c("Cluster_2", "Cluster_3"),]
-exp_subset <- exp[, colnames(exp) %in% rownames(ubmi_clusters_subset)]
+gaudi_clusters_subset <- gaudi_clusters[gaudi_clusters$clust %in% c("Cluster_2", "Cluster_3"),]
+exp_subset <- exp[, colnames(exp) %in% rownames(gaudi_clusters_subset)]
 
-poma_obj <- PomaCreateObject(metadata = ubmi_clusters_subset[, c("sample", "clust")],
+poma_obj <- PomaCreateObject(metadata = gaudi_clusters_subset[, c("sample", "clust")],
                              features = t(exp_subset))
 
 limma_res <- poma_obj %>% 
@@ -218,15 +224,16 @@ limma_res <- poma_obj %>%
 nrow(limma_res[limma_res$adj_pvalue < 0.05,]) # 190 DE genes
 
 saveRDS(limma_res, file = paste0(results_folder, "limma_res_cluster2_cluster3.Rds"))
+# limma_res <- readRDS(file = paste0(results_folder, "limma_res_cluster2_cluster3.Rds"))
 
-poma_obj %>% 
-  PomaVolcano(method = "limma",
-              pval = "adjusted",
-              pval_cutoff = 0.05,
-              adjust = "fdr",
-              log2fc_cutoff = 1.5)
+limma_res %>% 
+  dplyr::select(feature, logFC, adj_pvalue) %>% 
+  PomaVolcano(pval_cutoff = 0.05,
+              log2fc_cutoff = 1.5,
+              x_label = "log2 (Fold Change)",
+              y_label = "-log10 (P-value)")
 
-ggsave(paste0(results_folder, "volcanoplot_clusters_2_3_UBMI.jpg"), width = 8)
+ggsave(paste0(results_folder, "volcanoplot_clusters_2_3_GAUDI.jpg"), width = 8)
 ```
 
 ## Enrichment Analysis
