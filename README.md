@@ -1,5 +1,5 @@
 
-# Unveiling Complex Biological Networks through Advanced UMAP-Driven Multi-Omics Integration
+# Benchmarking multi-omics integration approaches for the study of cancer
 
 ![](readme_example.png) 
 
