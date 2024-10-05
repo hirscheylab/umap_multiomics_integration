@@ -334,6 +334,8 @@ for (i in list_clusters) {
         }
     }
     
+    colnames(JI.final) <- gsub("UBMI", "GAUDI", colnames(JI.final))
+      
     # Plot results
     par(mar=c(25,4,2,2)+.1)
     boxplot(JI.final, xaxt="none", cex.axis=3.5, 
