@@ -39,10 +39,8 @@ We have developed a comprehensive [R package for the GAUDI method](https://githu
 ### Key Features
 
   - Easy integration of diverse omic data types
-  - Implementation of advanced UMAP algorithms for dimensionality reduction
   - Built-in functions for clustering and feature extraction
-  - Built-in functions for latent factors and metagenes visualization
-  - Compatibility with standard bioinformatics workflows in R and Bioconductor
+  - Built-in functions for visualization of latent factors and metagenes
 
 ## Citation
 
