@@ -165,7 +165,7 @@ save(expression_clean, methylation_clean, mirna_clean, metabolomics_clean, sampl
 source("runfactorization.R")
 
 # Folder for results
-results_folder <- "../results_DepMap/"
+results_folder <- "../results_DepMap2/"
 # Create output folder
 dir.create(results_folder, showWarnings = FALSE)
 
@@ -173,12 +173,12 @@ dir.create(results_folder, showWarnings = FALSE)
 out <- runfactorization("../data/DepMap/",
                         c("expression.txt", "methylation.txt", "mirna.txt", "metabolomics.txt"),
                         num.factors = 2, 
-                        min_pts = 10, # manual tuning
-                        compute_features = FALSE,
+                        min_pts = NULL,
+                        compute_features = TRUE,
                         sep="\t", 
                         filtering="stringent")
 
-save(out, file = "../results_DepMap/factorization.RData")
+save(out, file = paste0(results_folder, "factorization2.RData"))
 ```
 
 ```{r}
@@ -197,7 +197,11 @@ c_index <- numeric(0)
 for(i in 1:length(out$factorizations)){
     
     # Get factorization result
-    factors <- out$factorizations[[i]][[1]]
+    if (out$method[i] == "UBMI") { # GAUDI
+      factors <- out$factorizations[[i]][[1]][[1]]
+    } else {
+      factors <- out$factorizations[[i]][[1]]
+    }
 
     # Delete NAs
     factors <- factors[!is.na(factors[,1]) & !is.na(factors[,2]), ]
@@ -257,8 +261,8 @@ depmap_cluster_comparison <- function(out) {
   clusters_df <- list()
   for (i in 1:length(out$factorizations)) {
     
-    if (out$method[i] == "UBMI" || out$method[i] == "intNMF") {
-      if (out$method[i] == "UBMI") {
+    if (out$method[i] == "GAUDI" || out$method[i] == "intNMF") {
+      if (out$method[i] == "GAUDI") {
         clust_iCluster <- as.matrix(out$UBMI.clusters)
       } else {
         clust_iCluster <- as.matrix(out$intNMF.clusters)
@@ -325,7 +329,7 @@ tica <- as.data.frame(out$factorizations[[6]][[1]])
 tica$method <- "tICA"
 colnames(tica)[1:2] <- c("factor1", "factor2")
 
-gaudi <- as.data.frame(out$factorizations[[7]][[1]])
+gaudi <- as.data.frame(out$factorizations[[7]][[1]][[1]])
 gaudi$method <- "GAUDI"
 colnames(gaudi)[1:2] <- c("factor1", "factor2")
 
@@ -411,7 +415,7 @@ ggplot(all_depmap, aes(x = factor1, y = factor2)) +
   facet_wrap(~ method, nrow = 3, scales = "free") +
   scale_fill_manual(values = ggsci::pal_npg()(8))
 
-ggsave(paste0(results_folder, "plot_overall.jpg"), width = 10, height = 10)
+ggsave(paste0(results_folder, "plot_overall.jpg"), width = 10, height = 10, dpi = 300)
 
 ## BARPLOT
 all_depmap2 <- all_depmap %>% 
@@ -431,5 +435,74 @@ ggplot(all_depmap2, aes(x = combined_score, y = reorder(method, combined_score))
         text = element_text(size = 15)) +
   coord_cartesian(xlim = c(0.22, 0.65)) # +- 0.6
 
-ggsave(paste0(results_folder, "barplot.jpg"), width = 5, height = 7)
+ggsave(paste0(results_folder, "barplot.jpg"), width = 5, height = 7, dpi = 300)
+```
+
+# Omic contributions
+
+```{r}
+metagenes <- out$factorizations[[7]][[1]][[2]][[1]]
+
+metagenes_annotated <- metagenes %>% 
+  tibble::rownames_to_column("feature") %>% 
+  dplyr::filter(contrib1 != 0 | contrib2 != 0) %>% 
+  dplyr::mutate(dataset = dplyr::case_when(grepl("MIMAT", feature) ~ "miRNA",
+                                           grepl("_", feature) ~ "Methylation",
+                                           grepl("[a-z]", feature) ~ "Metabolomics",
+                                           TRUE ~ "Expression"
+                                           )) %>% 
+  dplyr::mutate(total_features = dplyr::case_when(dataset == "miRNA" ~ 734,
+                                                  dataset == "Methylation" ~ 12212,
+                                                  dataset == "Metabolomics" ~ 225,
+                                                  dataset == "Expression" ~ 15343
+                                                  ))
+
+metagenes_factor1 <- metagenes_annotated %>% 
+  dplyr::filter(contrib1 != 0) %>% 
+  dplyr::select(feature, dataset, total_features)
+
+metagenes_factor2 <- metagenes_annotated %>% 
+  dplyr::filter(contrib2 != 0) %>% 
+  dplyr::select(feature, dataset, total_features)
+
+plot_enrichment_score <- function(data, label) {
+  dataset_summary <- data %>%
+    dplyr::group_by(dataset) %>%
+    dplyr::summarise(
+      selected_features = dplyr::n(),
+      total_features = first(total_features),
+      proportion_selected = selected_features / total_features,
+      contribution_score = selected_features / nrow(data),
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(
+      proportion_normalized = proportion_selected / sum(proportion_selected),
+      enrichment_score = (selected_features / nrow(data)) / (total_features / sum(total_features))
+    )
+  
+  # Create visualization
+  p <- ggplot(dataset_summary, aes(x = reorder(dataset, -enrichment_score), y = enrichment_score)) +
+  geom_bar(stat = "identity", aes(fill = dataset)) +
+  geom_text(aes(label = sprintf("%.2f", enrichment_score)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +
+  labs(title = paste0("Enrichment Scores - ", label),
+       x = "Dataset Type",
+       y = "Enrichment Score") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        text = element_text(size = 15),
+        legend.position = "none") +
+  scale_fill_manual(values = ggsci::pal_npg()(nrow(dataset_summary)))
+  
+  return(p)
+}
+
+library(patchwork)
+a <- plot_enrichment_score(metagenes_factor1, "Dimension 1")
+b <- plot_enrichment_score(metagenes_factor2, "Dimension 2")
+
+final_metagenes_plot <- a | b
+
+ggsave(paste0(results_folder, "omic_contributions.jpg"), width = 9, height = 6, dpi = 300)
 ```

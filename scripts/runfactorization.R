@@ -211,7 +211,8 @@ runfactorization <- function(folder,
                          umap_params = list(n_components = num.factors),
                          umap_params_conc = list(n_components = n_components_conc),
                          compute_features = compute_features, 
-                         samples_in_rows = FALSE, 
+                         samples_in_rows = FALSE,
+                         combine_omics = TRUE,
                          # xgboost_params = list(lambda = 0, eta = 0.8, gamma = 10),
                          min_pts = min_pts)
 

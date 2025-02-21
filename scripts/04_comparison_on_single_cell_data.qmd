@@ -65,12 +65,12 @@ dir.create(results_folder, showWarnings = FALSE)
 out <- runfactorization("../data/single-cell/",
                         c("CellLines_RNAseqCounts.txt", "CellLines_ATACseqCounts.txt"),
                         num.factors = 2, 
-                        min_pts = 10, # manual tuning
+                        min_pts = 10,
                         compute_features = FALSE,
                         sep="\t", 
                         filtering="stringent")
 
-save(out, file = "../results_single_cell/factorization.RData")
+save(out, file = paste0(results_folder, "factorization.RData"))
 ```
 
 ```{r}
@@ -185,7 +185,7 @@ ggplot(all_sc, aes(x = factor1, y = factor2)) +
   facet_wrap(~ method, nrow = 3, scales = "free") +
   scale_fill_manual(values = ggsci::pal_npg()(3))
 
-ggsave(paste0(results_folder, "plot_overall.jpg"), width = 9, height = 9)
+ggsave(paste0(results_folder, "plot_overall.jpg"), width = 9, height = 9, dpi = 300)
 ```
 
 ## GAUDI Clusters
@@ -204,7 +204,7 @@ ggplot(gaudi_clusters, aes(x = factor1, y = factor2)) +
         text = element_text(size = 15)) +
   scale_fill_manual(values = ggsci::pal_npg()(4))
 
-ggsave(paste0(results_folder, "plot_GAUDI_clusters.jpg"), width = 6, height = 5)
+ggsave(paste0(results_folder, "plot_GAUDI_clusters.jpg"), width = 6, height = 5, dpi = 300)
 ```
 
 ## Cluster Differential Expression Analysis
@@ -233,7 +233,7 @@ limma_res %>%
               x_label = "log2 (Fold Change)",
               y_label = "-log10 (P-value)")
 
-ggsave(paste0(results_folder, "volcanoplot_clusters_2_3_GAUDI.jpg"), width = 8)
+ggsave(paste0(results_folder, "volcanoplot_clusters_2_3_GAUDI.jpg"), width = 8, dpi = 300)
 ```
 
 ## Enrichment Analysis
@@ -279,7 +279,7 @@ dotplot(kegg_res,
   facet_grid(. ~ .sign) +
   theme(legend.position = "top")
 
-ggsave(paste0(results_folder, "GSEA_KEGG.jpg"), width = 10)
+ggsave(paste0(results_folder, "GSEA_KEGG.jpg"), width = 10, dpi = 300)
 openxlsx::write.xlsx(kegg_res@result, file = paste0(results_folder, "GSEA_KEGG_table.xlsx"))
 ```
 
