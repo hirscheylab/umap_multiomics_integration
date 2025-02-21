@@ -1,5 +1,5 @@
 
-# Benchmarking multi-omics integration approaches for the study of cancer
+# Multi-Omics Integration Benchmarks: GAUDI Validation and Comparative Analysis
 
 ![](readme_example.png) 
 
