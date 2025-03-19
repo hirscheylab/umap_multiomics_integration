@@ -506,3 +506,4 @@ final_metagenes_plot <- a | b
 
 ggsave(paste0(results_folder, "omic_contributions.jpg"), width = 9, height = 6, dpi = 300)
 ```
+
