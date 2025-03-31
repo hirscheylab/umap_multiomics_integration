@@ -22,6 +22,8 @@ In our study, we have meticulously selected methods for benchmarking based on th
   - Comparison on DepMap datasets: [`05_comparison_on_DepMap_data.qmd`](https://github.com/hirscheylab/umap_multiomics_integration/blob/main/scripts/05_comparison_on_DepMap_data.qmd)
   
   - Benchmark of different UMAP integration methods (not included in the paper): [`umap_integration_methods.py`](https://github.com/hirscheylab/umap_multiomics_integration/blob/main/scripts/umap_integration_methods.py)
+  
+  - Single-cell chromatin conformation (Hi-C) and gene expression integration: [`06_scHiC.ipynb`](https://github.com/hirscheylab/umap_multiomics_integration/blob/main/scripts/06_scHiC.ipynb)
 
 ## Benchmark Methods
 
