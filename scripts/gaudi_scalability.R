@@ -290,8 +290,8 @@ time_plots <- plot_time_by_samples / plot_time_by_features
 quality_plots <- plot_memory / plot_clusters
 
 # Save plots
-ggsave("./results_scalability_benchmark/gaudi_time_complexity.pdf", time_plots, width = 12, height = 10)
-ggsave("./results_scalability_benchmark/gaudi_quality_plots.pdf", quality_plots, width = 12, height = 10)
+ggsave("./results_scalability_benchmark/gaudi_time_complexity.pdf", time_plots, width = 8, height = 8, dpi = 300)
+ggsave("./results_scalability_benchmark/gaudi_quality_plots.pdf", quality_plots, width = 8, height = 8, dpi = 300)
 
 # Print summary
 cat("\n===== Benchmark Summary =====\n")
