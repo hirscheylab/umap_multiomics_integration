@@ -1,6 +1,8 @@
 
 # Multi-Omics Integration Benchmarks: GAUDI Validation and Comparative Analysis
 
+[![DOI](https://zenodo.org/badge/740257038.svg)](https://doi.org/10.5281/zenodo.15442171)
+
 ![](readme_example.png) 
 
 ## Introduction
